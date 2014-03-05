@@ -9,8 +9,8 @@ import time
 
 class OpenTSDBFinder(object):
     def __init__(self, opentsdb_uri=None, opentsdb_tree=None):
-        self.opentsdb_uri = (opentsdb_uri or settings.OPENTSDB_URI).rstrip('/')
-        self.opentsdb_tree = opentsdb_tree or getattr(settings, 'OPENTSDB_TREE')
+        self.opentsdb_uri = (opentsdb_uri or getattr(settings, 'OPENTSDB_URI', 'http://localhost:4242')).rstrip('/')
+        self.opentsdb_tree = opentsdb_tree or getattr(settings, 'OPENTSDB_TREE', 1)
 
     def find_nodes(self, query):
         for node in self.find_opentsdb_nodes(query, "%04X" % self.opentsdb_tree):
@@ -29,6 +29,17 @@ class OpenTSDBFinder(object):
                 yield node
             elif query.pattern == node_data['displayName']:
                 yield node
+            elif query.pattern.startswith('*.') and not node.is_leaf:
+                for inner_node in self.find_opentsdb_nodes(
+                    FindQuery(
+                        pattern = query.pattern.replace('*.', '', 1),
+                        startTime = query.startTime,
+                        endTime = query.endTime,
+                    ),
+                    node_data['branchId'],
+                    node.path,
+                ):
+                    yield inner_node
             elif query.pattern.startswith(adjusted_name):
                 for inner_node in self.find_opentsdb_nodes(
                     FindQuery(

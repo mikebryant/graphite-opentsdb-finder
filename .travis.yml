@@ -1,0 +1,19 @@
+language: python
+python:
+  - "2.6"
+  - "2.7"
+  - "3.2"
+  - "3.3"
+  - "pypy"
+before_install:
+  - export PYTHONPATH=/tmp/graphite/
+  - mkdir /tmp/graphite/
+install:
+  - pip install -q gitversion
+  - "pip install -e git+https://github.com/graphite-project/graphite-web.git#egg=graphite-web --install-option='--install-dir=/tmp/graphite'""
+  - pip install -q .
+  - pip install -q coveralls
+script:
+  - coverage run --source=graphite_opentsdb setup.py test
+after_success:
+  - coveralls
