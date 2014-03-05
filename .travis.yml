@@ -10,7 +10,7 @@ before_install:
   - mkdir /tmp/graphite/
 install:
   - pip install -q gitversion
-  - "pip install -e git+https://github.com/graphite-project/graphite-web.git#egg=graphite-web --install-option='--install-dir=/tmp/graphite'""
+  - "pip install -e git+https://github.com/graphite-project/graphite-web.git#egg=graphite-web --install-option='--install-dir=/tmp/graphite'"
   - pip install -q .
   - pip install -q coveralls
 script:
