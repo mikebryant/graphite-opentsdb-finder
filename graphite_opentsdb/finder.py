@@ -3,9 +3,10 @@ from __future__ import division
 from django.conf import settings
 from graphite.intervals import Interval, IntervalSet
 from graphite.node import BranchNode, LeafNode
-from graphite.storage import FindQuery
+import re
 import requests
 import time
+
 
 class OpenTSDBFinder(object):
     def __init__(self, opentsdb_uri=None, opentsdb_tree=None):
@@ -13,44 +14,42 @@ class OpenTSDBFinder(object):
         self.opentsdb_tree = opentsdb_tree or getattr(settings, 'OPENTSDB_TREE', 1)
 
     def find_nodes(self, query):
-        for node in self.find_opentsdb_nodes(query, "%04X" % self.opentsdb_tree):
+        query_parts = []
+        for part in query.pattern.split('.'):
+            part = part.replace('*', '.*')
+            part = re.sub(
+                r'{([^{]*)}',
+                lambda x: "(%s)" % x.groups()[0].replace(',', '|'),
+                part,
+            )
+            query_parts.append(part)
+        for node in self.find_opentsdb_nodes(query_parts, "%04X" % self.opentsdb_tree):
             yield node
 
     def get_opentsdb_url(self, url):
-        #print "%s/%s" % (self.opentsdb_uri, url)
         return requests.get("%s/%s" % (self.opentsdb_uri, url)).json()
 
-    def find_opentsdb_nodes(self, query, current_branch, path=''):
-        #print query.pattern, current_branch, type(query.pattern), query.pattern in ('*', ''), path
+    def find_opentsdb_nodes(self, query_parts, current_branch, path=''):
+        query_regex = re.compile(query_parts[0])
         for node, node_data in self.get_branch_nodes(current_branch, path):
-            #print node, node_data
-            adjusted_name = "%s." % node_data['displayName']
-            if query.pattern in ('*', ''):
-                yield node
-            elif query.pattern == node_data['displayName']:
-                yield node
-            elif query.pattern.startswith('*.') and not node.is_leaf:
-                for inner_node in self.find_opentsdb_nodes(
-                    FindQuery(
-                        pattern = query.pattern.replace('*.', '', 1),
-                        startTime = query.startTime,
-                        endTime = query.endTime,
-                    ),
-                    node_data['branchId'],
-                    node.path,
-                ):
-                    yield inner_node
-            elif query.pattern.startswith(adjusted_name):
-                for inner_node in self.find_opentsdb_nodes(
-                    FindQuery(
-                        pattern = query.pattern.replace(adjusted_name, '', 1),
-                        startTime = query.startTime,
-                        endTime = query.endTime,
-                    ),
-                    node_data['branchId'],
-                    node.path,
-                ):
-                    yield inner_node
+            node_name = node_data['displayName']
+            dot_count = node_name.count('.')
+
+            if dot_count:
+                node_query_regex = re.compile(r'\.'.join(query_parts[:dot_count+1]))
+            else:
+                node_query_regex = query_regex
+
+            if node_query_regex.match(node_name):
+                if len(query_parts) == 1:
+                    yield node
+                elif not node.is_leaf:
+                    for inner_node in self.find_opentsdb_nodes(
+                        query_parts[dot_count+1:],
+                        node_data['branchId'],
+                        node.path,
+                    ):
+                        yield inner_node
 
     def get_branch_nodes(self, current_branch, path):
         results = self.get_opentsdb_url("tree/branch?branch=%s" % current_branch)
@@ -80,13 +79,12 @@ class OpenTSDBReader(object):
         return IntervalSet([Interval(0, time.time())])
 
     def fetch(self, startTime, endTime):
-        #print int(startTime), int(endTime), int(endTime-startTime)/self.step
         data = requests.get("%s&start=%d&end=%d" % (
             self.url,
             int(startTime),
             int(endTime),
         )).json()
-        #print data
+
         time_info = (startTime, endTime, self.step)
         number_points = int((endTime-startTime)//self.step)
         datapoints = [None for i in range(number_points)]

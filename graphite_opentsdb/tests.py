@@ -10,9 +10,9 @@ from httmock import all_requests, with_httmock
 from graphite_opentsdb.finder import OpenTSDBFinder
 from graphite.storage import FindQuery
 
+
 @all_requests
 def mocked_urls(url, request):
-    print url
     return {
         ('localhost:4242', '/tree/branch', 'branch=0001'): {
             'status_code': 200,
@@ -34,6 +34,7 @@ def mocked_urls(url, request):
         }
     )
 
+
 class OpenTSDBFinderTestCase(test.TestCase):
     '''Test the finder class.'''
 
@@ -42,8 +43,8 @@ class OpenTSDBFinderTestCase(test.TestCase):
         self.finder = OpenTSDBFinder('http://localhost:4242', 1)
 
     @override_settings(
-        OPENTSDB_URI  = 'http://localhost:9999',
-        OPENTSDB_TREE = 999,
+        OPENTSDB_URI='http://localhost:9999',
+        OPENTSDB_TREE=999,
     )
     def test_finder_settings(self):
         '''
@@ -66,26 +67,45 @@ class OpenTSDBFinderTestCase(test.TestCase):
         nodes = list(self.finder.find_nodes(query=FindQuery('*', None, None)))
 
         self.assertEqual(
-            len(nodes),
-            3,
-            'There should be 3 nodes at the top level, not %d.' % len(nodes),
+            [node.path for node in nodes],
+            ['branch1', 'branch2', 'leaf'],
         )
 
         # One level down
         nodes = list(self.finder.find_nodes(query=FindQuery('*.leaf', None, None)))
 
         self.assertEqual(
-            len(nodes),
-            2,
-            'There should be 2 nodes at this level, not %d.' % len(nodes),
+            [node.path for node in nodes],
+            ['branch1.leaf', 'branch2.leaf']
         )
 
         nodes = list(self.finder.find_nodes(query=FindQuery('branch1.leaf', None, None)))
 
         self.assertEqual(
-            len(nodes),
-            1,
-            'There should be 1 node at this level, not %d.' % len(nodes),
+            [node.path for node in nodes],
+            ['branch1.leaf'],
         )
 
+    @with_httmock(mocked_urls)
+    def test_finder_braces(self):
+        '''
+        Test that the finder can deal with brace expressions.
+        '''
 
+        nodes = list(self.finder.find_nodes(query=FindQuery('{branch1,leaf}', None, None)))
+        self.assertEqual(
+            [node.path for node in nodes],
+            ['branch1', 'leaf'],
+        )
+
+    @with_httmock(mocked_urls)
+    def test_finder_character_classes(self):
+        '''
+        Test that the finder can deal with character classes.
+        '''
+
+        nodes = list(self.finder.find_nodes(query=FindQuery('branch[1]', None, None)))
+        self.assertEqual(
+            [node.path for node in nodes],
+            ['branch1'],
+        )
