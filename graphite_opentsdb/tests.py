@@ -39,7 +39,7 @@ class OpenTSDBFinderTestCase(test.TestCase):
 
     def setUp(self):
         #self.settings_dict = copy.deepcopy(self.BASE_SETTINGS)
-        self.finder = OpenTSDBFinder()
+        self.finder = OpenTSDBFinder('http://localhost:4242', 1)
 
     @override_settings(
         OPENTSDB_URI  = 'http://localhost:9999',
