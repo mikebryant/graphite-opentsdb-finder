@@ -26,6 +26,10 @@ def mocked_urls(url, request):
             'status_code': 200,
             'content': '''{"leaves":[{"metric":"branch2.leaf","tags":{"host":"localhost"},"tsuid":"000BC700000100047C","displayName":"leaf"}],"branches":null,"path":{"0":"ROOT","1":"branch2"},"displayName":"branch2","treeId":1,"branchId":"00013FFD49C8","depth":1}''',
         },
+        ('localhost:4242', '/tree/branch', 'branch=0002'): {
+            'status_code': 200,
+            'content': '''{"leaves":null,"branches":[{"leaves":null,"branches":null,"path":{"0":"ROOT","1":"leaf.with.dots"},"displayName":"leaf.with.dots","treeId":1,"branchId":"0002CFE0B4A4","depth":1}],"path":{"0":"ROOT"},"displayName":"ROOT","treeId":2,"branchId":"0002","depth":0}''',
+        },
     }.get(
         (url.netloc, url.path, url.query),
         {
@@ -108,4 +112,19 @@ class OpenTSDBFinderTestCase(test.TestCase):
         self.assertEqual(
             [node.path for node in nodes],
             ['branch1'],
+        )
+
+    @with_httmock(mocked_urls)
+    def test_finder_dotted_nodes(self):
+        '''
+        Test that the finder can deal with nodes with dots
+        (Since OpenTSDB allows that).
+        '''
+
+        finder = OpenTSDBFinder('http://localhost:4242', 2)
+
+        nodes = list(finder.find_nodes(query=FindQuery('*', None, None)))
+        self.assertEqual(
+            [node.name for node in nodes],
+            ['leaf.with.dots'],
         )

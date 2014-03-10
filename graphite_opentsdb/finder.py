@@ -8,6 +8,20 @@ import requests
 import time
 
 
+class OpenTSDBNodeMixin(object):
+    def __init__(self, name, *args):
+        super(OpenTSDBNodeMixin, self).__init__(*args)
+        self.name = name
+
+
+class OpenTSDBLeafNode(OpenTSDBNodeMixin, LeafNode):
+    pass
+
+
+class OpenTSDBBranchNode(OpenTSDBNodeMixin, BranchNode):
+    pass
+
+
 class OpenTSDBFinder(object):
     def __init__(self, opentsdb_uri=None, opentsdb_tree=None):
         self.opentsdb_uri = (opentsdb_uri or getattr(settings, 'OPENTSDB_URI', 'http://localhost:4242')).rstrip('/')
@@ -57,14 +71,14 @@ class OpenTSDBFinder(object):
             path += '.'
         if results['branches']:
             for branch in results['branches']:
-                yield BranchNode(path + branch['displayName']), branch
+                yield OpenTSDBBranchNode(branch['displayName'], path + branch['displayName']), branch
         if results['leaves']:
             for leaf in results['leaves']:
                 reader = OpenTSDBReader(
                     self.opentsdb_uri,
                     leaf['tsuid'],
                 )
-                yield LeafNode(path + leaf['displayName'], reader), leaf
+                yield OpenTSDBLeafNode(leaf['displayName'], path + leaf['displayName'], reader), leaf
 
 
 class OpenTSDBReader(object):
