@@ -7,6 +7,9 @@ import re
 import requests
 import time
 
+import logging
+LOGGER = logging.getLogger(__name__)
+
 
 class OpenTSDBNodeMixin(object):
     def __init__(self, name, *args):
@@ -41,7 +44,11 @@ class OpenTSDBFinder(object):
             yield node
 
     def get_opentsdb_url(self, url):
-        return requests.get("%s/%s" % (self.opentsdb_uri, url)).json()
+        full_url = "%s/%s" % (self.opentsdb_uri, url)
+        try:
+            return requests.get(full_url).json()
+        except ValueError:
+            LOGGER.error("Couldn't parse json for %s", full_url)
 
     def find_opentsdb_nodes(self, query_parts, current_branch, path=''):
         query_regex = re.compile(query_parts[0])
@@ -67,18 +74,19 @@ class OpenTSDBFinder(object):
 
     def get_branch_nodes(self, current_branch, path):
         results = self.get_opentsdb_url("tree/branch?branch=%s" % current_branch)
-        if path:
-            path += '.'
-        if results['branches']:
-            for branch in results['branches']:
-                yield OpenTSDBBranchNode(branch['displayName'], path + branch['displayName']), branch
-        if results['leaves']:
-            for leaf in results['leaves']:
-                reader = OpenTSDBReader(
-                    self.opentsdb_uri,
-                    leaf['tsuid'],
-                )
-                yield OpenTSDBLeafNode(leaf['displayName'], path + leaf['displayName'], reader), leaf
+        if results:
+            if path:
+                path += '.'
+            if results['branches']:
+                for branch in results['branches']:
+                    yield OpenTSDBBranchNode(branch['displayName'], path + branch['displayName']), branch
+            if results['leaves']:
+                for leaf in results['leaves']:
+                    reader = OpenTSDBReader(
+                        self.opentsdb_uri,
+                        leaf['tsuid'],
+                    )
+                    yield OpenTSDBLeafNode(leaf['displayName'], path + leaf['displayName'], reader), leaf
 
 
 class OpenTSDBReader(object):

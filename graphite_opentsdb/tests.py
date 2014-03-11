@@ -30,6 +30,10 @@ def mocked_urls(url, request):
             'status_code': 200,
             'content': '''{"leaves":null,"branches":[{"leaves":null,"branches":null,"path":{"0":"ROOT","1":"leaf.with.dots"},"displayName":"leaf.with.dots","treeId":1,"branchId":"0002CFE0B4A4","depth":1}],"path":{"0":"ROOT"},"displayName":"ROOT","treeId":2,"branchId":"0002","depth":0}''',
         },
+        ('localhost:4242', '/tree/branch', 'branch=0003'): {
+            'status_code': 404,
+            'content': '',
+        },
     }.get(
         (url.netloc, url.path, url.query),
         {
@@ -128,3 +132,14 @@ class OpenTSDBFinderTestCase(test.TestCase):
             [node.name for node in nodes],
             ['leaf.with.dots'],
         )
+
+    @with_httmock(mocked_urls)
+    def test_finder_missing_branch(self):
+        '''
+        Test that the finder can deal with a missing branch.
+        '''
+
+        finder = OpenTSDBFinder('http://localhost:4242', 3)
+
+        nodes = list(finder.find_nodes(query=FindQuery('*', None, None)))
+        self.assertEqual(nodes, [])
