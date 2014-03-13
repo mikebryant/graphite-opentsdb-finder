@@ -12,7 +12,7 @@ setup(
     install_requires     = ['django', 'graphite-web', 'requests'],
     include_package_data = True,
     test_suite           = 'setuptest.setuptest.SetupTestSuite',
-    tests_require        = ['django-setuptest', 'httmock'],
+    tests_require        = ['django-setuptest', 'httmock', 'mock'],
     url                  = 'https://github.com/mikebryant/graphite-opentsdb-finder',
     classifiers          = [
         'Development Status :: 3 - Alpha',

@@ -7,6 +7,8 @@ import re
 import requests
 import time
 
+from . import app_settings
+
 import logging
 LOGGER = logging.getLogger(__name__)
 
@@ -27,8 +29,8 @@ class OpenTSDBBranchNode(OpenTSDBNodeMixin, BranchNode):
 
 class OpenTSDBFinder(object):
     def __init__(self, opentsdb_uri=None, opentsdb_tree=None):
-        self.opentsdb_uri = (opentsdb_uri or getattr(settings, 'OPENTSDB_URI', 'http://localhost:4242')).rstrip('/')
-        self.opentsdb_tree = opentsdb_tree or getattr(settings, 'OPENTSDB_TREE', 1)
+        self.opentsdb_uri = (opentsdb_uri or app_settings.OPENTSDB_URI).rstrip('/')
+        self.opentsdb_tree = opentsdb_tree or app_settings.OPENTSDB_TREE
 
     def find_nodes(self, query):
         query_parts = []
