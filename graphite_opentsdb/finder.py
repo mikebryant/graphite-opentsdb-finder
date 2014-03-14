@@ -28,8 +28,7 @@ class OpenTSDBBranchNode(OpenTSDBNodeMixin, BranchNode):
     pass
 
 
-@cacheback(app_settings.OPENTSDB_CACHE_TIME)
-def cached_find_nodes(opentsdb_uri, opentsdb_tree, pattern):
+def find_nodes_from_pattern(opentsdb_uri, opentsdb_tree, pattern):
     query_parts = []
     for part in pattern.split('.'):
         part = part.replace('*', '.*')
@@ -39,9 +38,11 @@ def cached_find_nodes(opentsdb_uri, opentsdb_tree, pattern):
             part,
         )
         query_parts.append(part)
-    return list(find_opentsdb_nodes(opentsdb_uri, query_parts, "%04X" % opentsdb_tree))
+    for node in find_opentsdb_nodes(opentsdb_uri, query_parts, "%04X" % opentsdb_tree):
+        yield node
 
 
+@cacheback(app_settings.OPENTSDB_CACHE_TIME)
 def get_opentsdb_url(opentsdb_uri, url):
     full_url = "%s/%s" % (opentsdb_uri, url)
     return requests.get(full_url).json()
@@ -94,27 +95,28 @@ class OpenTSDBFinder(object):
         self.opentsdb_tree = opentsdb_tree or app_settings.OPENTSDB_TREE
 
     def find_nodes(self, query):
-        for node in cached_find_nodes(self.opentsdb_uri, self.opentsdb_tree, query.pattern):
+        for node in find_nodes_from_pattern(self.opentsdb_uri, self.opentsdb_tree, query.pattern):
             yield node
 
 
 class OpenTSDBReader(object):
-    __slots__ = ('url',)
+    __slots__ = ('opentsdb_uri', 'tsuid',)
     supported = True
     step = 60
 
-    def __init__(self, base_url, tsuid):
-        self.url = "%s/query?tsuid=sum:1m-avg:%s" % (base_url, tsuid)
+    def __init__(self, opentsdb_uri, tsuid):
+        self.opentsdb_uri = opentsdb_uri
+        self.tsuid = tsuid
 
     def get_intervals(self):
         return IntervalSet([Interval(0, time.time())])
 
     def fetch(self, startTime, endTime):
-        data = requests.get("%s&start=%d&end=%d" % (
-            self.url,
+        data = get_opentsdb_url(self.opentsdb_uri, "query?tsuid=sum:1m-avg:%s&start=%d&end=%d" % (
+            self.tsuid,
             int(startTime),
             int(endTime),
-        )).json()
+        ))
 
         time_info = (startTime, endTime, self.step)
         number_points = int((endTime-startTime)//self.step)
