@@ -44,10 +44,7 @@ def cached_find_nodes(opentsdb_uri, opentsdb_tree, pattern):
 
 def get_opentsdb_url(opentsdb_uri, url):
     full_url = "%s/%s" % (opentsdb_uri, url)
-    try:
-        return requests.get(full_url).json()
-    except ValueError:
-        LOGGER.error("Couldn't parse json for %s", full_url)
+    return requests.get(full_url).json()
 
 
 def find_opentsdb_nodes(opentsdb_uri, query_parts, current_branch, path=''):

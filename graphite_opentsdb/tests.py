@@ -146,8 +146,8 @@ class OpenTSDBFinderTestCase(test.TestCase):
 
         finder = OpenTSDBFinder('http://localhost:4242/api/v1/', 3)
 
-        nodes = list(finder.find_nodes(query=FindQuery('*', None, None)))
-        self.assertEqual(nodes, [])
+        with self.assertRaises(ValueError):
+            nodes = list(finder.find_nodes(query=FindQuery('*', None, None)))
 
 
     def test_caching(self):
