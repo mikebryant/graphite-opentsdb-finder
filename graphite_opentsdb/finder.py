@@ -112,11 +112,12 @@ class OpenTSDBReader(object):
         return IntervalSet([Interval(0, time.time())])
 
     def fetch(self, startTime, endTime):
-        data = get_opentsdb_url(self.opentsdb_uri, "query?tsuid=sum:1m-avg:%s&start=%d&end=%d" % (
+        data = requests.get("%s/query?tsuid=sum:1m-avg:%s&start=%d&end=%d" % (
+            self.opentsdb_uri,
             self.tsuid,
             int(startTime),
             int(endTime),
-        ))
+        )).json()
 
         time_info = (startTime, endTime, self.step)
         number_points = int((endTime-startTime)//self.step)
