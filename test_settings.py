@@ -10,3 +10,9 @@ from graphite.settings import *
 LOG_DIR = '/tmp'
 
 INSTALLED_APPS = ['graphite_opentsdb']
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'
+    }
+}

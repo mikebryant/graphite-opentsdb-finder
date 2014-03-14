@@ -3,7 +3,8 @@
 # pylint: disable=R0904
 
 from django import test
-from httmock import all_requests, with_httmock
+from django.core.cache import cache
+from httmock import all_requests, with_httmock, HTTMock
 import mock
 
 from graphite_opentsdb.finder import OpenTSDBFinder
@@ -42,6 +43,13 @@ def mocked_urls(url, request):
         }
     )
 
+@all_requests
+def bad_urls(url, request):
+    return {
+        'status_code': 500,
+        'content': '',
+    }
+
 
 class OpenTSDBFinderTestCase(test.TestCase):
     '''Test the finder class.'''
@@ -49,6 +57,7 @@ class OpenTSDBFinderTestCase(test.TestCase):
     def setUp(self):
         #self.settings_dict = copy.deepcopy(self.BASE_SETTINGS)
         self.finder = OpenTSDBFinder('http://localhost:4242/api/v1', 1)
+        cache.clear()
 
     @mock.patch.object(app_settings, 'OPENTSDB_URI', 'http://localhost:9999')
     @mock.patch.object(app_settings, 'OPENTSDB_TREE', 999)
@@ -139,3 +148,24 @@ class OpenTSDBFinderTestCase(test.TestCase):
 
         nodes = list(finder.find_nodes(query=FindQuery('*', None, None)))
         self.assertEqual(nodes, [])
+
+
+    def test_caching(self):
+        '''
+        Test caching behaviour.
+        '''
+        with HTTMock(mocked_urls):
+            nodes = list(self.finder.find_nodes(query=FindQuery('*', None, None)))
+
+            self.assertEqual(
+                [node.path for node in nodes],
+                ['branch1', 'branch2', 'leaf'],
+            )
+
+        with HTTMock(bad_urls):
+            nodes = list(self.finder.find_nodes(query=FindQuery('*', None, None)))
+
+            self.assertEqual(
+                [node.path for node in nodes],
+                ['branch1', 'branch2', 'leaf'],
+            )

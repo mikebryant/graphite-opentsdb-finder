@@ -17,3 +17,10 @@ OPENTSDB_TREE = getattr(
     'OPENTSDB_TREE',
     1,
 )
+
+#: Cache time for OpenTSDB fetches.
+OPENTSDB_CACHE_TIME = getattr(
+    settings,
+    'OPENTSDB_CACHE_TIME',
+    60*15,
+)
