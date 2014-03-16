@@ -4,6 +4,7 @@ from cacheback.decorators import cacheback
 from django.conf import settings
 from graphite.intervals import Interval, IntervalSet
 from graphite.node import BranchNode, LeafNode
+from graphite.readers import FetchInProgress
 import re
 import requests
 import time
@@ -112,22 +113,28 @@ class OpenTSDBReader(object):
         return IntervalSet([Interval(0, time.time())])
 
     def fetch(self, startTime, endTime):
-        data = requests.get("%s/query?tsuid=sum:1m-avg:%s&start=%d&end=%d" % (
-            self.opentsdb_uri,
-            self.tsuid,
-            int(startTime),
-            int(endTime),
-        )).json()
+        def get_data():
 
-        time_info = (startTime, endTime, self.step)
-        number_points = int((endTime-startTime)//self.step)
-        datapoints = [None for i in range(number_points)]
+            data = requests.get("%s/query?tsuid=sum:1m-avg:%s&start=%d&end=%d" % (
+                self.opentsdb_uri,
+                self.tsuid,
+                int(startTime),
+                int(endTime),
+            )).json()
 
-        for series in data:
-            for timestamp, value in series['dps'].items():
-                timestamp = int(timestamp)
-                interval = timestamp - (timestamp % 60)
-                index = (interval - int(startTime)) // self.step
-                datapoints[index] = value
+            time_info = (startTime, endTime, self.step)
+            number_points = int((endTime-startTime)//self.step)
+            datapoints = [None for i in range(number_points)]
 
-        return (time_info, datapoints)
+            for series in data:
+                for timestamp, value in series['dps'].items():
+                    timestamp = int(timestamp)
+                    interval = timestamp - (timestamp % 60)
+                    index = (interval - int(startTime)) // self.step
+                    datapoints[index] = value
+
+            return (time_info, datapoints)
+
+        job = app_settings.OPENTSDB_REQUEST_POOL.apply_async(get_data)
+
+        return FetchInProgress(job.get)
