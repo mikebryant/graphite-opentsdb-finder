@@ -103,7 +103,7 @@ class OpenTSDBFinder(object):
 class OpenTSDBReader(object):
     __slots__ = ('opentsdb_uri', 'tsuid',)
     supported = True
-    step = 60
+    step = app_settings.OPENTSDB_DEFAULT_AGGREGATION_INTERVAL
 
     def __init__(self, opentsdb_uri, tsuid):
         self.opentsdb_uri = opentsdb_uri
@@ -115,8 +115,9 @@ class OpenTSDBReader(object):
     def fetch(self, startTime, endTime):
         def get_data():
 
-            data = requests.get("%s/query?tsuid=sum:1m-avg:%s&start=%d&end=%d" % (
+            data = requests.get("%s/query?tsuid=sum:%ds-avg:%s&start=%d&end=%d" % (
                 self.opentsdb_uri,
+                app_settings.OPENTSDB_DEFAULT_AGGREGATION_INTERVAL,
                 self.tsuid,
                 int(startTime),
                 int(endTime),
@@ -129,7 +130,7 @@ class OpenTSDBReader(object):
             for series in data:
                 for timestamp, value in series['dps'].items():
                     timestamp = int(timestamp)
-                    interval = timestamp - (timestamp % 60)
+                    interval = timestamp - (timestamp % app_settings.OPENTSDB_DEFAULT_AGGREGATION_INTERVAL)
                     index = (interval - int(startTime)) // self.step
                     datapoints[index] = value
 

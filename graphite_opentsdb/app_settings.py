@@ -41,3 +41,10 @@ OPENTSDB_REQUEST_POOL = getattr(
     'OPENTSDB_REQUEST_POOL',
     ThreadPool(OPENTSDB_MAX_REQUESTS),
 )
+
+#: Default aggregation interval for Graphite (in seconds)
+OPENTSDB_DEFAULT_AGGREGATION_INTERVAL = getattr(
+    settings,
+    'OPENTSDB_DEFAULT_AGGREGATION_INTERVAL',
+    15,
+)
