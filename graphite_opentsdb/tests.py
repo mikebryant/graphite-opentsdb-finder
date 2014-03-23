@@ -17,19 +17,134 @@ def mocked_urls(url, request):
     return {
         ('localhost:4242', '/api/v1/tree/branch', 'branch=0001'): {
             'status_code': 200,
-            'content': '''{"leaves":[{"metric":"leaf","tags":{"host":"localhost"},"tsuid":"000BC700000100047A","displayName":"leaf"}],"branches":[{"leaves":null,"branches":null,"path":{"0":"ROOT","1":"branch1"},"displayName":"branch1","treeId":1,"branchId":"0001CFE0B4A4","depth":1},{"leaves":null,"branches":null,"path":{"0":"ROOT","1":"branch2"},"displayName":"branch2","treeId":1,"branchId":"00013FFD49C8","depth":1}],"path":{"0":"ROOT"},"displayName":"ROOT","treeId":1,"branchId":"0001","depth":0}''',
+            'content': '''
+                {
+                    "branchId": "0001",
+                    "branches": [
+                        {
+                            "branchId": "0001CFE0B4A4",
+                            "branches": null,
+                            "depth": 1,
+                            "displayName": "branch1",
+                            "leaves": null,
+                            "path": {
+                                "0": "ROOT",
+                                "1": "branch1"
+                            },
+                            "treeId": 1
+                        },
+                        {
+                            "branchId": "00013FFD49C8",
+                            "branches": null,
+                            "depth": 1,
+                            "displayName": "branch2",
+                            "leaves": null,
+                            "path": {
+                                "0": "ROOT",
+                                "1": "branch2"
+                            },
+                            "treeId": 1
+                        }
+                    ],
+                    "depth": 0,
+                    "displayName": "ROOT",
+                    "leaves": [
+                        {
+                            "displayName": "leaf",
+                            "metric": "leaf",
+                            "tags": {
+                                "host": "localhost"
+                            },
+                            "tsuid": "000BC700000100047A"
+                        }
+                    ],
+                    "path": {
+                        "0": "ROOT"
+                    },
+                    "treeId": 1
+                }
+            ''',
         },
         ('localhost:4242', '/api/v1/tree/branch', 'branch=0001CFE0B4A4'): {
             'status_code': 200,
-            'content': '''{"leaves":[{"metric":"branch1.leaf","tags":{"host":"localhost"},"tsuid":"000BC700000100047B","displayName":"leaf"}],"branches":null,"path":{"0":"ROOT","1":"branch1"},"displayName":"branch1","treeId":1,"branchId":"0001CFE0B4A4","depth":1}''',
+            'content': '''
+                {
+                    "branchId": "0001CFE0B4A4",
+                    "branches": null,
+                    "depth": 1,
+                    "displayName": "branch1",
+                    "leaves": [
+                        {
+                            "displayName": "leaf",
+                            "metric": "branch1.leaf",
+                            "tags": {
+                                "host": "localhost"
+                            },
+                            "tsuid": "000BC700000100047B"
+                        }
+                    ],
+                    "path": {
+                        "0": "ROOT",
+                        "1": "branch1"
+                    },
+                    "treeId": 1
+                }
+            ''',
         },
         ('localhost:4242', '/api/v1/tree/branch', 'branch=00013FFD49C8'): {
             'status_code': 200,
-            'content': '''{"leaves":[{"metric":"branch2.leaf","tags":{"host":"localhost"},"tsuid":"000BC700000100047C","displayName":"leaf"}],"branches":null,"path":{"0":"ROOT","1":"branch2"},"displayName":"branch2","treeId":1,"branchId":"00013FFD49C8","depth":1}''',
+            'content': '''
+                {
+                    "branchId": "00013FFD49C8",
+                    "branches": null,
+                    "depth": 1,
+                    "displayName": "branch2",
+                    "leaves": [
+                        {
+                            "displayName": "leaf",
+                            "metric": "branch2.leaf",
+                            "tags": {
+                                "host": "localhost"
+                            },
+                            "tsuid": "000BC700000100047C"
+                        }
+                    ],
+                    "path": {
+                        "0": "ROOT",
+                        "1": "branch2"
+                    },
+                    "treeId": 1
+                }
+            ''',
         },
         ('localhost:4242', '/api/v1/tree/branch', 'branch=0002'): {
             'status_code': 200,
-            'content': '''{"leaves":null,"branches":[{"leaves":null,"branches":null,"path":{"0":"ROOT","1":"leaf.with.dots"},"displayName":"leaf.with.dots","treeId":1,"branchId":"0002CFE0B4A4","depth":1}],"path":{"0":"ROOT"},"displayName":"ROOT","treeId":2,"branchId":"0002","depth":0}''',
+            'content': '''
+                {
+                    "branchId": "0002",
+                    "branches": [
+                        {
+                            "branchId": "0002CFE0B4A4",
+                            "branches": null,
+                            "depth": 1,
+                            "displayName": "leaf.with.dots",
+                            "leaves": null,
+                            "path": {
+                                "0": "ROOT",
+                                "1": "leaf.with.dots"
+                            },
+                            "treeId": 1
+                        }
+                    ],
+                    "depth": 0,
+                    "displayName": "ROOT",
+                    "leaves": null,
+                    "path": {
+                        "0": "ROOT"
+                    },
+                    "treeId": 2
+                }
+            ''',
         },
         ('localhost:4242', '/api/v1/tree/branch', 'branch=0003'): {
             'status_code': 404,
