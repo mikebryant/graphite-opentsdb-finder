@@ -8,6 +8,7 @@ from graphite.readers import FetchInProgress
 import re
 import requests
 import time
+import threading
 
 from . import app_settings
 
@@ -39,7 +40,11 @@ def find_nodes_from_pattern(opentsdb_uri, opentsdb_tree, pattern):
             part,
         )
         query_parts.append(part)
-    for node in find_opentsdb_nodes(opentsdb_uri, query_parts, "%04X" % opentsdb_tree):
+
+    shared_reader = SharedReader()
+    nodes = list(find_opentsdb_nodes(opentsdb_uri, query_parts, "%04X" % opentsdb_tree, shared_reader=shared_reader))
+    shared_reader.node_count = len(nodes)
+    for node in nodes:
         yield node
 
 
@@ -49,9 +54,9 @@ def get_opentsdb_url(opentsdb_uri, url):
     return requests.get(full_url).json()
 
 
-def find_opentsdb_nodes(opentsdb_uri, query_parts, current_branch, path=''):
+def find_opentsdb_nodes(opentsdb_uri, query_parts, current_branch, shared_reader, path=''):
     query_regex = re.compile(query_parts[0])
-    for node, node_data in get_branch_nodes(opentsdb_uri, current_branch, path):
+    for node, node_data in get_branch_nodes(opentsdb_uri, current_branch, shared_reader, path):
         node_name = node_data['displayName']
         dot_count = node_name.count('.')
 
@@ -68,12 +73,13 @@ def find_opentsdb_nodes(opentsdb_uri, query_parts, current_branch, path=''):
                     opentsdb_uri,
                     query_parts[dot_count+1:],
                     node_data['branchId'],
+                    shared_reader,
                     node.path,
                 ):
                     yield inner_node
 
 
-def get_branch_nodes(opentsdb_uri, current_branch, path):
+def get_branch_nodes(opentsdb_uri, current_branch, shared_reader, path):
     results = get_opentsdb_url(opentsdb_uri, "tree/branch?branch=%s" % current_branch)
     if results:
         if path:
@@ -85,7 +91,8 @@ def get_branch_nodes(opentsdb_uri, current_branch, path):
             for leaf in results['leaves']:
                 reader = OpenTSDBReader(
                     opentsdb_uri,
-                    leaf['tsuid'],
+                    leaf,
+                    shared_reader,
                 )
                 yield OpenTSDBLeafNode(leaf['displayName'], path + leaf['displayName'], reader), leaf
 
@@ -100,14 +107,54 @@ class OpenTSDBFinder(object):
             yield node
 
 
+class SharedReader(object):
+    def __init__(self):
+        self.worker = threading.Semaphore(1)
+        self.config_lock = threading.Lock()
+        self.workers = {}
+        self.results = {}
+        self.result_events = {}
+
+    def get(self, opentsdb_uri, aggregation_interval, leaf_data, start, end):
+        key = (opentsdb_uri, aggregation_interval, leaf_data['metric'], start, end)
+        with self.config_lock:
+            if key not in self.workers:
+                self.workers[key] = threading.Semaphore(1)
+                self.result_events[key] = threading.Event()
+
+        if self.workers[key].acquire(False):
+            # we are the worker, do the work
+            data = requests.get("%s/query?m=sum:%ds-avg:%s{%s}&start=%d&end=%d&show_tsuids=true" % (
+                opentsdb_uri,
+                aggregation_interval,
+                leaf_data['metric'],
+                ','.join(["%s=*" % t for t in leaf_data['tags']]),
+                start,
+                end,
+            )).json()
+
+            self.results[key] = {}
+            for metric in data:
+                assert len(metric['tsuids']) == 1
+                self.results[key][metric['tsuids'][0]] = [metric]
+            self.result_events[key].set()
+
+        self.result_events[key].wait()
+        tsuid = leaf_data['tsuid']
+        if tsuid in self.results[key]:
+            return self.results[key][tsuid]
+        else:
+            return []
+
 class OpenTSDBReader(object):
-    __slots__ = ('opentsdb_uri', 'tsuid',)
+    __slots__ = ('opentsdb_uri', 'leaf_data', 'shared_reader',)
     supported = True
     step = app_settings.OPENTSDB_DEFAULT_AGGREGATION_INTERVAL
 
-    def __init__(self, opentsdb_uri, tsuid):
+    def __init__(self, opentsdb_uri, leaf_data, shared_reader):
         self.opentsdb_uri = opentsdb_uri
-        self.tsuid = tsuid
+        self.leaf_data = leaf_data
+        self.shared_reader = shared_reader
 
     def get_intervals(self):
         return IntervalSet([Interval(0, time.time())])
@@ -115,13 +162,22 @@ class OpenTSDBReader(object):
     def fetch(self, startTime, endTime):
         def get_data():
 
-            data = requests.get("%s/query?tsuid=sum:%ds-avg:%s&start=%d&end=%d" % (
-                self.opentsdb_uri,
-                app_settings.OPENTSDB_DEFAULT_AGGREGATION_INTERVAL,
-                self.tsuid,
-                int(startTime),
-                int(endTime),
-            )).json()
+            if self.shared_reader.node_count > app_settings.OPENTSDB_METRIC_QUERY_LIMIT:
+                data = self.shared_reader.get(
+                    self.opentsdb_uri,
+                    app_settings.OPENTSDB_DEFAULT_AGGREGATION_INTERVAL,
+                    self.leaf_data,
+                    int(startTime),
+                    int(endTime),
+                )
+            else:
+                data = requests.get("%s/query?tsuid=sum:%ds-avg:%s&start=%d&end=%d" % (
+                    self.opentsdb_uri,
+                    app_settings.OPENTSDB_DEFAULT_AGGREGATION_INTERVAL,
+                    self.leaf_data['tsuid'],
+                    int(startTime),
+                    int(endTime),
+                )).json()
 
             time_info = (startTime, endTime, self.step)
             number_points = int((endTime-startTime)//self.step)

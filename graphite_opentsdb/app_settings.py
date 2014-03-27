@@ -34,8 +34,16 @@ OPENTSDB_MAX_REQUESTS = getattr(
     10,
 )
 
+#: If we know we're trying to do more than this many requests for one metric,
+#: we should just do one query
+OPENTSDB_METRIC_QUERY_LIMIT = getattr(
+    settings,
+    'OPENTSDB_METRIC_QUERY_LIMIT',
+    OPENTSDB_MAX_REQUESTS,
+)
+
 #: The pool to use for concurrent requests.
-#: Overrides OPENTSDB_CURRENT_REQUESTS if set.
+#: Overrides OPENTSDB_MAX_REQUESTS if set.
 OPENTSDB_REQUEST_POOL = getattr(
     settings,
     'OPENTSDB_REQUEST_POOL',
