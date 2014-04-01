@@ -69,14 +69,28 @@ def find_opentsdb_nodes(opentsdb_uri, query_parts, current_branch, shared_reader
             if len(query_parts) == 1:
                 yield node
             elif not node.is_leaf:
-                for inner_node in find_opentsdb_nodes(
-                    opentsdb_uri,
-                    query_parts[dot_count+1:],
-                    node_data['branchId'],
-                    shared_reader,
-                    node.path,
-                ):
-                    yield inner_node
+                # We might need to split into two branches here
+                # if using dotted nodes, as we can't tell if the UI
+                # wanted all nodes with a single * (from advanced mode)
+                # or if a node like a.b is supposed to be matched by *.*
+                if query_parts[dot_count+1:]:
+                    for inner_node in find_opentsdb_nodes(
+                        opentsdb_uri,
+                        query_parts[dot_count+1:],
+                        node_data['branchId'],
+                        shared_reader,
+                        node.path,
+                    ):
+                        yield inner_node
+                if dot_count and query_parts[0] == '.*':
+                    for inner_node in find_opentsdb_nodes(
+                        opentsdb_uri,
+                        query_parts[1:],
+                        node_data['branchId'],
+                        shared_reader,
+                        node.path,
+                    ):
+                        yield inner_node
 
 
 def get_branch_nodes(opentsdb_uri, current_branch, shared_reader, path):

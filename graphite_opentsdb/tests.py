@@ -127,11 +127,11 @@ def mocked_urls(url, request):
                             "branchId": "0002CFE0B4A4",
                             "branches": null,
                             "depth": 1,
-                            "displayName": "leaf.with.dots",
+                            "displayName": "branch.with.dots",
                             "leaves": null,
                             "path": {
                                 "0": "ROOT",
-                                "1": "leaf.with.dots"
+                                "1": "branch.with.dots"
                             },
                             "treeId": 1
                         }
@@ -141,6 +141,32 @@ def mocked_urls(url, request):
                     "leaves": null,
                     "path": {
                         "0": "ROOT"
+                    },
+                    "treeId": 2
+                }
+            ''',
+        },
+        ('localhost:4242', '/api/v1/tree/branch', 'branch=0002CFE0B4A4'): {
+            'status_code': 200,
+            'content': '''
+                {
+                    "branchId": "0002CFE0B4A4",
+                    "branches": null,
+                    "depth": 1,
+                    "displayName": "branch.with.dots",
+                    "leaves": [
+                        {
+                            "displayName": "leaf.with.dots",
+                            "metric": "branch.with.dots.leaf.with.dots",
+                            "tags": {
+                                "host": "localhost"
+                            },
+                            "tsuid": "000BC700000100047D"
+                        }
+                    ],
+                    "path": {
+                        "0": "ROOT",
+                        "1": "branch.with.dots"
                     },
                     "treeId": 2
                 }
@@ -248,6 +274,21 @@ class OpenTSDBFinderTestCase(test.TestCase):
         finder = OpenTSDBFinder('http://localhost:4242/api/v1/', 2)
 
         nodes = list(finder.find_nodes(query=FindQuery('*', None, None)))
+        self.assertEqual(
+            [node.name for node in nodes],
+            ['branch.with.dots'],
+        )
+
+    @with_httmock(mocked_urls)
+    def test_finder_nested_dotted_nodes(self):
+        '''
+        Test that the finder can deal with nested nodes with dots
+        (Since OpenTSDB allows that).
+        '''
+
+        finder = OpenTSDBFinder('http://localhost:4242/api/v1/', 2)
+
+        nodes = list(finder.find_nodes(query=FindQuery('*.*', None, None)))
         self.assertEqual(
             [node.name for node in nodes],
             ['leaf.with.dots'],
